@@ -566,15 +566,16 @@ function updateCamera(dt) {
     const back = { x: Math.sin(v.heading), z: Math.cos(v.heading) };
     const speedK = THREE.MathUtils.clamp(Math.abs(v.speed) / v.spec.topSpeed, 0, 1);
     if (state.camMode === 'front') {
-      // Movie-poster framing: camera ahead of the car, looking back at it —
-      // the car, its pursuers and the city behind them all in one frame.
+      // Movie-poster framing: camera low and close ahead of the car, looking
+      // back at it — the car fills the foreground, its pursuers and the city
+      // behind them stretch out in the same frame.
       const right = { x: Math.cos(v.heading), z: -Math.sin(v.heading) };
       targetPos = new THREE.Vector3(
-        p.x + back.x * 11.5 + right.x * 3.6,
-        p.y + 2.9,
-        p.z + back.z * 11.5 + right.z * 3.6,
+        p.x + back.x * 10.2 + right.x * 3.1,
+        p.y + 2.1,
+        p.z + back.z * 10.2 + right.z * 3.1,
       );
-      lookPos = new THREE.Vector3(p.x - back.x * 4, p.y + 1.3, p.z - back.z * 4);
+      lookPos = new THREE.Vector3(p.x - back.x * 4, p.y + 1.2, p.z - back.z * 4);
       camera.position.lerp(targetPos, 1 - Math.pow(0.000001, dt));
       camera.lookAt(lookPos);
       return;

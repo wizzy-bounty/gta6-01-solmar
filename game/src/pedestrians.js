@@ -8,8 +8,9 @@ import * as THREE from 'three';
 import { BLOCK_CENTERS, BLOCK_PITCH, ROAD_WIDTH, districtOf } from './city.js';
 
 const SKIN = [0xf2c49b, 0xc68863, 0x8a5a3b, 0x6e4530, 0xffdbac];
-const SHIRTS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0xecf0f1, 0x1abc9c, 0xe67e22, 0xfd79a8, 0x00cec9];
+const SHIRTS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf39c12, 0x9b59b6, 0xecf0f1, 0x1abc9c, 0xe67e22, 0xfd79a8, 0x00cec9, 0xff6b81, 0x48dbfb, 0xfeca57, 0x1dd1a1];
 const PANTS = [0x2c3e50, 0x34495e, 0x5d4037, 0x212121, 0x546e7a, 0x795548];
+const HAIR = [0x191008, 0x2e1a0e, 0x54331c, 0x8a5a2b, 0xc9a86a, 0xe3d29b, 0x9aa0a6, 0xb34a2e];
 
 function part(w, h, d, color, x, y, z) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
@@ -20,7 +21,7 @@ function part(w, h, d, color, x, y, z) {
 
 /**
  * Build a person. Returns a group whose userData holds the swinging limbs.
- * palette: { skin, shirt, pants, cap? } — omit for a random citizen.
+ * palette: { skin, shirt, pants, cap?, hair? } — omit for a random citizen.
  */
 export function createPersonMesh(palette = {}) {
   const skin = palette.skin ?? SKIN[Math.floor(Math.random() * SKIN.length)];
@@ -47,6 +48,16 @@ export function createPersonMesh(palette = {}) {
     const cap = part(0.4, 0.12, 0.4, palette.cap, 0, 1.78, 0);
     const brim = part(0.4, 0.05, 0.26, palette.cap, 0, 1.74, 0.28);
     g.add(cap, brim);
+  } else if (palette.hair !== null) {
+    // Hair: a top slab and a back panel, so heads are not bare skin boxes.
+    // A palette may pin the colour (hair: 0x…) or leave it to chance; a
+    // palette with hair: null stays bald.
+    if (palette.hair !== undefined || Math.random() < 0.82) {
+      const hairColor = palette.hair ?? HAIR[Math.floor(Math.random() * HAIR.length)];
+      const top = part(0.38, 0.13, 0.38, hairColor, 0, 1.8, 0);
+      const back = part(0.38, 0.26, 0.1, hairColor, 0, 1.64, -0.15);
+      g.add(top, back);
+    }
   }
   g.userData.limbs = { legL, legR, armL, armR };
   g.userData.walkPhase = Math.random() * Math.PI * 2;

@@ -13,21 +13,32 @@ export function readShotNumber() {
 export function applyShot(G, n) {
   if (n === 1) {
     // COVER — a three-star chase down the Marina waterfront boulevard.
+    // Parked cars line both curbs behind the chase, so the front camera's
+    // frame is full of street life: kerbside metal, cones, billboards.
     G.setTimeOfDay(17.35);
     G.setMission(2, 1); // "Drop the package at Old Town Square"
     const car = G.placePlayerInCar('sport', 0xd92323, -224, -96, 0, 21);
     G.placePolice(-226.5, -110, 0);
     G.placePolice(-221.5, -121, 0);
+    G.placeCar('sedan', 0x8a8f96, -232.1, -118, 0);
+    G.placeCar('hatch', 0x3fa7d6, -232.1, -158, 0);
+    G.placeCar('taxi', 0xf7b731, -215.9, -140, Math.PI);
+    G.placeCar('sedan', 0x2e4a3f, -215.9, -176, Math.PI);
     G.setWanted(3);
     G.setAutoDrive(21);
     G.setCamMode('front');
     return car;
   }
   if (n === 2) {
-    // Stealing a Vantara GT under the Neon Strip lights, dusk.
+    // Stealing a Vantara GT under the Neon Strip lights, dusk. A witness
+    // strolls the west sidewalk and two cars park along the street, so the
+    // theft plays in a lived-in street, not an empty one.
     G.setTimeOfDay(19.6);
     G.setMission(1, 0); // "Steal the magenta Vantara GT"
     G.placeCar('sport', 0xff2fb3, -168, 188, 0);
+    G.placeCar('sedan', 0x546e7a, -159.9, 170, Math.PI);
+    G.placeCar('hatch', 0xe0b341, -176.1, 206, 0);
+    G.placePedestrian(-175.3, 182, -175.3, 198, { skin: 0x8a5a3b, shirt: 0xe67e22, pants: 0x212121, hair: 0x191008 });
     G.placePlayer(-166.2, 189.6, -2.25);
     G.setWanted(0);
     return null;
@@ -46,18 +57,19 @@ export function applyShot(G, n) {
     G.setWanted(0);
     return null;
   }
-  // Shot 4 — a morning stroll on the Marina promenade, tower ahead, sea behind.
-  // Dressed foreground: citizens stroll the sidewalk rings of Riko's block and
-  // the block across the street, and two cars are parked along the avenue.
+  // Shot 4 — a morning stroll up the Marina boulevard: Riko walks the
+  // avenue north toward the Marina Tower, the sea promenade on his left,
+  // citizens strolling, cars parked along both curbs.
   G.setTimeOfDay(10.4);
   G.setMission(0, 0); // "Meet Mara at the Velvet Palm club"
-  G.placePedestrian(-215.3, -158, -215.3, -138, { skin: 0xc68863, shirt: 0xe74c3c, pants: 0x2c3e50 });
-  G.placePedestrian(-206, -158.5, -184, -158.5, { skin: 0x8a5a3b, shirt: 0xf39c12, pants: 0x34495e, cap: 0x14273d });
-  G.placePedestrian(-186, -160.1, -208, -160.1, { skin: 0xf2c49b, shirt: 0x2ecc71, pants: 0x212121 });
-  G.placePedestrian(-186, -176.7, -206, -176.7, { skin: 0x6e4530, shirt: 0x3498db, pants: 0x5d4037 });
-  G.placeCar('hatch', 0xd94f30, -206, -163.8, Math.PI / 2);
+  G.placePedestrian(-233, -146, -233, -142.5, { skin: 0xc68863, shirt: 0xe74c3c, pants: 0x2c3e50, hair: 0x2e1a0e });
+  G.placePedestrian(-231.5, -138, -231.5, -134.5, { skin: 0xf2c49b, shirt: 0x2ecc71, pants: 0x212121, hair: 0xc9a86a });
+  G.placePedestrian(-215, -160.5, -190, -160.5, { skin: 0x8a5a3b, shirt: 0xf39c12, pants: 0x34495e, cap: 0x14273d });
+  G.placePedestrian(-186, -176.7, -206, -176.7, { skin: 0x6e4530, shirt: 0x3498db, pants: 0x5d4037, hair: 0x191008 });
+  G.placeCar('hatch', 0xd94f30, -232.1, -108, 0);
+  G.placeCar('taxi', 0xf7b731, -215.9, -104, Math.PI);
   G.placeCar('sedan', 0x7a4fb0, -188, -172.2, -Math.PI / 2);
-  G.placePlayer(-214, -148, 2.77);
+  G.placePlayer(-228, -124, 3.02);
   G.setWanted(0);
   return null;
 }

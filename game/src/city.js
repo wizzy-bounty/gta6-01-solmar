@@ -91,25 +91,132 @@ function box(w, h, d, mat) {
   return m;
 }
 
-/** A building facade texture drawn on a canvas: base colour, window grid, trim. */
-function facadeTexture(style, rng, cols, rows) {
+/** Lighten (f > 1) or darken (f < 1) a '#rrggbb' colour; returns '#rrggbb'. */
+function shadeColor(hex, f) {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const ch = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
+  const r = ch((n >> 16) & 255);
+  const gg = ch((n >> 8) & 255);
+  const b = ch(n & 255);
+  return `rgb(${r},${gg},${b})`;
+}
+
+/** Ground-floor shops for the commercial facade variants. */
+const SHOP_SIGNS = [
+  { text: 'CAFE SOL', fg: '#ffe9c9', bg: '#7a3b1e', awn: '#c94f36' },
+  { text: 'BAR LUNA', fg: '#ffd7f4', bg: '#33124d', awn: '#c44fd6' },
+  { text: 'PIZZA', fg: '#ffffff', bg: '#a8232a', awn: '#2e7d5b' },
+  { text: 'HOTEL MAR', fg: '#eaf6ff', bg: '#1f4d6e', awn: '#3f7fbf' },
+  { text: 'RAMEN', fg: '#ffe9a8', bg: '#40260f', awn: '#d9a441' },
+  { text: 'TACOS', fg: '#fff3d6', bg: '#8a5a1d', awn: '#e07b2a' },
+  { text: 'SALON', fg: '#2c2145', bg: '#f2c9e0', awn: '#8e44ad' },
+  { text: 'GYM 24H', fg: '#d8ffd8', bg: '#1d3a24', awn: '#3f9e4d' },
+  { text: 'BOOKS', fg: '#f5eeda', bg: '#4a3620', awn: '#8a6a48' },
+  { text: 'MART', fg: '#ffffff', bg: '#14532d', awn: '#f7b731' },
+];
+
+const GLASS_DARK = ['rgba(18,26,44,0.88)', 'rgba(24,38,60,0.88)', 'rgba(12,18,30,0.92)', 'rgba(30,32,44,0.85)'];
+
+/**
+ * A building facade texture drawn on a canvas. Every variant differs: its own
+ * column/row counts, base tint, and a window pattern with blank panels,
+ * double-width panes, under-window AC dots and (in Old Town) shutters, so no
+ * two buildings read as the same stamped grid. Commercial variants trade the
+ * bottom rows for a shopfront: sign band, striped awning, glass panes, door.
+ */
+function facadeTexture(style, rng, opts = {}) {
+  const cols = opts.cols ?? 6;
+  const rows = opts.rows ?? 12;
+  const commercial = !!opts.commercial;
   const c = document.createElement('canvas');
   c.width = 128; c.height = 256;
   const g = c.getContext('2d');
-  g.fillStyle = style.base;
+  g.fillStyle = opts.base ?? style.base;
+  g.fillRect(0, 0, 128, 256);
+  // Gentle vertical shading so walls are not one flat fill.
+  const grad = g.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0, 'rgba(255,255,255,0.07)');
+  grad.addColorStop(0.6, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.13)');
+  g.fillStyle = grad;
   g.fillRect(0, 0, 128, 256);
   g.fillStyle = 'rgba(0,0,0,0.16)';
   g.fillRect(0, 0, 128, 10);
-  g.fillStyle = style.trim;
-  g.fillRect(0, 246, 128, 10);
+
+  const winTop = 16;
+  const winBottom = commercial ? 186 : 244;
   const cw = 128 / cols;
-  const ch = 256 / rows;
+  const ch = (winBottom - winTop) / rows;
+  const covered = new Set();
   for (let x = 0; x < cols; x++) {
     for (let y = 0; y < rows; y++) {
-      const lit = rng() < 0.34;
-      g.fillStyle = lit ? style.lit : 'rgba(18,26,44,0.85)';
-      g.fillRect(x * cw + cw * 0.22, y * ch + ch * 0.24, cw * 0.56, ch * 0.5);
+      if (covered.has(`${x},${y}`)) continue;
+      const wx = x * cw + cw * 0.22;
+      const wy = winTop + y * ch + ch * 0.24;
+      const ww = cw * 0.56;
+      const wh = ch * 0.5;
+      const roll = rng();
+      if (roll < 0.07) {
+        // A blanked-out panel breaks the grid's rhythm.
+        g.fillStyle = 'rgba(0,0,0,0.10)';
+        g.fillRect(wx - 1, wy - 1, ww + 2, wh + 2);
+        continue;
+      }
+      const wide = roll > 0.93 && x < cols - 1;
+      const wDraw = wide ? ww + cw * 0.78 : ww;
+      if (wide) covered.add(`${x + 1},${y}`);
+      if (rng() < 0.34) {
+        g.fillStyle = [style.lit, '#fff3c4', '#ffd9a0'][Math.floor(rng() * 3)];
+      } else {
+        g.fillStyle = GLASS_DARK[Math.floor(rng() * GLASS_DARK.length)];
+      }
+      g.fillRect(wx, wy, wDraw, wh);
+      g.fillStyle = 'rgba(255,255,255,0.20)';
+      g.fillRect(wx, wy, wDraw, 1.4);
+      // Old Town shutters flank some windows.
+      if (style === DISTRICT_STYLE.oldtown && rng() < 0.3) {
+        g.fillStyle = style.trim;
+        g.fillRect(wx - cw * 0.17, wy, cw * 0.11, wh);
+        g.fillRect(wx + wDraw + cw * 0.06, wy, cw * 0.11, wh);
+      }
+      // A little AC box under some windows.
+      if (rng() < 0.13) {
+        g.fillStyle = 'rgba(210,214,220,0.75)';
+        g.fillRect(wx + wDraw * 0.25, wy + wh + 1.5, wDraw * 0.5, 2.6);
+      }
     }
+  }
+
+  if (commercial) {
+    const shop = SHOP_SIGNS[Math.floor(rng() * SHOP_SIGNS.length)];
+    // Sign band with the shop's name.
+    g.fillStyle = shop.bg;
+    g.fillRect(0, 186, 128, 30);
+    g.fillStyle = shop.fg;
+    g.font = '900 16px Arial, sans-serif';
+    g.textAlign = 'center';
+    g.fillText(shop.text, 64, 207);
+    // Striped awning over the glass.
+    for (let i = 0; i < 8; i++) {
+      g.fillStyle = i % 2 === 0 ? shop.awn : '#f2ede2';
+      g.fillRect(i * 16, 216, 16, 13);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.28)';
+    g.fillRect(0, 229, 128, 3);
+    // Shop glass: dark panes, pale mullions, a door in the middle.
+    g.fillStyle = '#101820';
+    g.fillRect(0, 232, 128, 24);
+    g.fillStyle = 'rgba(190,220,240,0.20)';
+    g.fillRect(0, 232, 128, 5);
+    g.fillStyle = 'rgba(220,228,236,0.55)';
+    for (let px = 0; px <= 128; px += 16) g.fillRect(px, 232, 1.6, 24);
+    g.fillStyle = '#26313c';
+    g.fillRect(56, 232, 16, 24);
+    g.fillStyle = '#ffd94d';
+    g.fillRect(68, 243, 2, 2);
+  } else {
+    g.fillStyle = style.trim;
+    g.fillRect(0, 246, 128, 10);
   }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -219,14 +326,83 @@ function buildRoads(scene) {
   scene.add(island);
 }
 
+/** Rooftop dressing: AC boxes on most roofs, a water tower or an antenna
+ *  mast on the tall ones — silhouettes stop being bare slabs. */
+function addRoofProps(scene, rng, cx, cz, w, d, roofY) {
+  const grey = lambert(0x9aa0a6);
+  const acCount = rng() < 0.8 ? 1 + Math.floor(rng() * 2) : 0;
+  for (let i = 0; i < acCount; i++) {
+    const aw = 1.6 + rng() * 2.2;
+    const ad = 1.6 + rng() * 2.2;
+    const ah = 0.7 + rng() * 0.8;
+    const ac = box(aw, ah, ad, grey);
+    ac.position.set(
+      cx + (rng() - 0.5) * Math.max(0, w - aw - 1.5),
+      roofY + ah / 2,
+      cz + (rng() - 0.5) * Math.max(0, d - ad - 1.5),
+    );
+    scene.add(ac);
+  }
+  if (roofY > 30 && rng() < 0.45) {
+    // Water tower on four legs, tank and cone cap.
+    const tx = cx + (rng() - 0.5) * Math.max(0, w - 6);
+    const tz = cz + (rng() - 0.5) * Math.max(0, d - 6);
+    const legMat = lambert(0x6e5646);
+    for (const [lx, lz] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) {
+      const leg = box(0.22, 2.2, 0.22, legMat);
+      leg.position.set(tx + lx, roofY + 1.1, tz + lz);
+      scene.add(leg);
+    }
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 2.9, 10), lambert(0x8a6a48));
+    tank.position.set(tx, roofY + 2.2 + 1.45, tz);
+    tank.castShadow = true;
+    scene.add(tank);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(1.95, 1.1, 10), lambert(0x5d4037));
+    cap.position.set(tx, roofY + 2.2 + 2.9 + 0.55, tz);
+    cap.castShadow = true;
+    scene.add(cap);
+  } else if (roofY > 22 && rng() < 0.55) {
+    // Antenna mast with a red warning tip.
+    const ax = cx + (rng() - 0.5) * Math.max(0, w - 4);
+    const az = cz + (rng() - 0.5) * Math.max(0, d - 4);
+    const ah = 3.5 + rng() * 4;
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, ah, 5), lambert(0x3c4148));
+    mast.position.set(ax, roofY + ah / 2, az);
+    scene.add(mast);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff5040 }));
+    tip.position.set(ax, roofY + ah + 0.2, az);
+    scene.add(tip);
+  }
+}
+
 function buildBlocks(scene, rng, colliders) {
+  // Five plain variants and three shopfront variants per district, each with
+  // its own grid and tint — plus a per-building colour multiply on top, so
+  // the city stops reading as one texture stamped on every block.
   const facadeMats = {};
   for (const [name, style] of Object.entries(DISTRICT_STYLE)) {
-    facadeMats[name] = [0, 1, 2].map(() => {
-      const tex = facadeTexture(style, rng, 6, 12);
-      return new THREE.MeshLambertMaterial({ map: tex });
-    });
-    facadeMats[name].roof = lambert(style.roof);
+    const variants = [];
+    for (let i = 0; i < 5; i++) {
+      const tex = facadeTexture(style, rng, {
+        cols: 4 + Math.floor(rng() * 5),
+        rows: 8 + Math.floor(rng() * 9),
+        base: shadeColor(style.base, 0.88 + rng() * 0.24),
+      });
+      variants.push(new THREE.MeshLambertMaterial({ map: tex }));
+    }
+    const commercial = [];
+    if (name !== 'docks') {
+      for (let i = 0; i < 3; i++) {
+        const tex = facadeTexture(style, rng, {
+          cols: 4 + Math.floor(rng() * 4),
+          rows: 7 + Math.floor(rng() * 5),
+          base: shadeColor(style.base, 0.92 + rng() * 0.16),
+          commercial: true,
+        });
+        commercial.push(new THREE.MeshLambertMaterial({ map: tex }));
+      }
+    }
+    facadeMats[name] = { variants, commercial, roof: lambert(style.roof) };
   }
   const slabMat = lambert(0xa7adb5);
 
@@ -254,7 +430,12 @@ function buildBlocks(scene, rng, colliders) {
       const d = district === 'docks' ? 20 + rng() * 8 : 13 + rng() * 6;
       const h = style.minH + rng() * (style.maxH - style.minH);
       const mats = facadeMats[district];
-      const side = mats[Math.floor(rng() * 3)];
+      // Low buildings on shopping streets get a shopfront ground floor.
+      const useShop = mats.commercial.length > 0 && h <= 26 && rng() < 0.5;
+      const pool = useShop ? mats.commercial : mats.variants;
+      const side = pool[Math.floor(rng() * pool.length)].clone();
+      const tint = 0.88 + rng() * 0.17;
+      side.color.setRGB(tint, tint * (0.97 + rng() * 0.05), tint * (0.94 + rng() * 0.08));
       const b = new THREE.Mesh(
         new THREE.BoxGeometry(w, h, d),
         [side, side, mats.roof, mats.roof, side, side],
@@ -264,6 +445,7 @@ function buildBlocks(scene, rng, colliders) {
       b.receiveShadow = true;
       scene.add(b);
       colliders.push({ minX: b.position.x - w / 2, maxX: b.position.x + w / 2, minZ: b.position.z - d / 2, maxZ: b.position.z + d / 2 });
+      addRoofProps(scene, rng, b.position.x, b.position.z, w, d, h + 0.2);
       // Neon trim on some Neon Strip towers.
       if (district === 'neon' && rng() < 0.55) {
         const trimMat = new THREE.MeshBasicMaterial({ color: [0xff4fd8, 0x37e0ff, 0xffa62b][Math.floor(rng() * 3)] });
@@ -583,6 +765,110 @@ function buildProps(scene, rng, colliders) {
       scene.add(head);
     }
   }
+
+  // Street furniture at some intersections: litter bins, planters, benches.
+  const binMat = lambert(0x2e5d43);
+  const benchMat = lambert(0x7a4a2b);
+  const planterMat = lambert(0xb9b0a0);
+  const leafMat = lambert(0x3f9e4d);
+  for (const sx of STREET_POS) {
+    for (const sz of STREET_POS) {
+      if ((Math.round(sx / 56) + Math.round(sz / 56)) % 2 !== 0) continue;
+      const roll = rng();
+      if (roll >= 0.55) continue;
+      const fx = sx - 8.6;
+      const fz = sz + 8.6;
+      if (roll < 0.2) {
+        const bin = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.32, 0.85, 8), binMat);
+        bin.position.set(fx, 0.62, fz);
+        bin.castShadow = true;
+        scene.add(bin);
+      } else if (roll < 0.38) {
+        const planter = box(1.9, 0.5, 0.7, planterMat);
+        planter.position.set(fx, 0.45, fz);
+        scene.add(planter);
+        const leaf = box(1.7, 0.35, 0.5, leafMat);
+        leaf.position.set(fx, 0.85, fz);
+        scene.add(leaf);
+      } else {
+        const seat = box(2.0, 0.12, 0.55, benchMat);
+        seat.position.set(fx, 0.62, fz);
+        scene.add(seat);
+        const back = box(2.0, 0.5, 0.1, benchMat);
+        back.position.set(fx, 0.95, fz - 0.26);
+        scene.add(back);
+        for (const s of [-1, 1]) {
+          const leg = box(0.12, 0.4, 0.45, benchMat);
+          leg.position.set(fx + s * 0.85, 0.4, fz);
+          scene.add(leg);
+        }
+      }
+    }
+  }
+
+  // Billboards over the avenues — the chase boulevard gets two, so the
+  // cover shot's background carries ads instead of bare sky.
+  const billboard = (x, z, rotY, text, fg, bg, sub) => {
+    const grp = new THREE.Group();
+    const poleMat = lambert(0x4a5058);
+    for (const s of [-3.4, 3.4]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 8, 6), poleMat);
+      pole.position.set(s, 4, 0);
+      pole.castShadow = true;
+      grp.add(pole);
+    }
+    const panel = box(11, 4.2, 0.35, lambert(0x22262c));
+    panel.position.y = 9.8;
+    grp.add(panel);
+    const face = new THREE.Mesh(
+      new THREE.PlaneGeometry(10.6, 3.8),
+      new THREE.MeshBasicMaterial({ map: signTexture(text, fg, bg, sub) }),
+    );
+    face.position.set(0, 9.8, 0.2);
+    grp.add(face);
+    grp.position.set(x, 0, z);
+    grp.rotation.y = rotY;
+    scene.add(grp);
+  };
+  billboard(-240, -150, Math.PI / 2, 'SOLMAR COLA', '#ffffff', '#b02030', 'ICE COLD • EVERYWHERE');
+  billboard(-240, 40, Math.PI / 2, 'VANTARA GT', '#14273d', '#ffd94d', '0-100 IN 3.9 S');
+  billboard(240, -40, -Math.PI / 2, 'VISIT SOLMAR', '#ffffff', '#1f6fb2', 'SUN • SEA • NEON');
+
+  // Roadwork dressing: a cone line and barriers along the Marina boulevard
+  // (the cover chase runs this street), a couple of cones on the Neon Strip.
+  const coneMat = lambert(0xe8641c);
+  const coneBandMat = lambert(0xf2ede2);
+  const coneAt = (x, z) => {
+    const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.3, 0.78, 8), coneMat);
+    cone.position.set(x, 0.39, z);
+    cone.castShadow = true;
+    scene.add(cone);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.16, 8), coneBandMat);
+    band.position.set(x, 0.46, z);
+    scene.add(band);
+  };
+  for (let z = -156; z <= -44; z += 9.3) coneAt(-218.1, z);
+  coneAt(-162.2, 172);
+  coneAt(-162.2, 206);
+  const barrierAt = (x, z) => {
+    const grp = new THREE.Group();
+    const board = box(2.4, 0.55, 0.18, lambert(0xf2ede2));
+    board.position.y = 0.85;
+    grp.add(board);
+    const stripe = box(2.42, 0.2, 0.2, lambert(0xc22430));
+    stripe.position.y = 0.85;
+    grp.add(stripe);
+    for (const s of [-1, 1]) {
+      const leg = box(0.14, 0.6, 0.5, lambert(0x4a5058));
+      leg.position.set(s * 1.0, 0.3, 0);
+      grp.add(leg);
+    }
+    grp.position.set(x, 0, z);
+    scene.add(grp);
+  };
+  barrierAt(-229.6, -128);
+  barrierAt(-229.6, -96);
+  barrierAt(-229.6, -64);
 
   // Pier 9 dressing: lamp posts along both edges of the deck (the deck top
   // sits at y 0.6) and palms flanking the pier root on the beach.
