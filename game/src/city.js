@@ -367,23 +367,125 @@ function buildLandmarks(scene, colliders) {
 
 function buildYacht(scene) {
   const { x, z } = PLACES.yachtDeck;
-  const hull = box(46, 5, 13, lambert(0xf2f4f6));
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+  const hullMat = lambert(0xf2f4f6);
+  const hull = box(46, 5, 13, hullMat);
   hull.position.set(x, 0.6, z);
   hull.castShadow = false;
   scene.add(hull);
-  const bow = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 6.5, 5, 3, 1), lambert(0xf2f4f6));
+  const bow = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 6.5, 5, 3, 1), hullMat);
   bow.position.set(x + 26, 0.6, z);
   bow.rotation.y = Math.PI / 2;
   scene.add(bow);
+  // Dark waterline band — the hull sits IN the water, not on it.
+  const waterline = box(46.2, 1.4, 13.2, lambert(0x27313c));
+  waterline.position.set(x, -1.3, z);
+  waterline.castShadow = false;
+  scene.add(waterline);
+  // Gold trim stripe along the hull.
   const stripe = box(46.4, 1.1, 13.4, lambert(0xc9a227));
   stripe.position.set(x, 2.2, z);
   scene.add(stripe);
+  // Warm portholes in a row along both hull sides.
+  for (let i = 0; i < 9; i++) {
+    for (const s of [1, -1]) {
+      const port = box(1.1, 0.8, 0.14, glowMat);
+      port.position.set(x - 18 + i * 4.5, 0.9, z + s * 6.55);
+      port.castShadow = false;
+      scene.add(port);
+    }
+  }
+  // Gold bulwark rail around the open main deck.
+  const railMat = lambert(0xd8b84a);
+  for (const s of [1, -1]) {
+    const rail = box(45, 0.16, 0.16, railMat);
+    rail.position.set(x, 3.9, z + s * 6.3);
+    rail.castShadow = false;
+    scene.add(rail);
+  }
+  const sternRail = box(0.16, 0.16, 12.4, railMat);
+  sternRail.position.set(x - 22.9, 3.9, z);
+  sternRail.castShadow = false;
+  scene.add(sternRail);
+  // The yacht's name across the stern, facing the pier and the city.
+  const sternSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(15, 3.4),
+    new THREE.MeshBasicMaterial({ map: signTexture('SOLMAR STAR', '#ffd76a', '#14273d', 'CASINO • YACHT CLUB') }),
+  );
+  sternSign.position.set(x - 23.15, 1.6, z);
+  sternSign.rotation.y = -Math.PI / 2;
+  scene.add(sternSign);
+
+  // Tiered superstructure: white decks with dark glass bands and warm,
+  // lit windows on the sides — and a casino entrance on the bow face.
   const deck1 = box(34, 3.4, 10.5, lambert(0xffffff));
   deck1.position.set(x - 2, 4.8, z);
   scene.add(deck1);
   const deck2 = box(22, 3, 8.4, lambert(0xe8ecf0));
   deck2.position.set(x - 4, 8, z);
   scene.add(deck2);
+  const glassMat = lambert(0x20344a);
+  for (const s of [1, -1]) {
+    const band1 = box(30, 1.1, 0.14, glassMat);
+    band1.position.set(x - 2, 5.3, z + s * 5.32);
+    band1.castShadow = false;
+    scene.add(band1);
+    const band2 = box(19, 1, 0.14, glassMat);
+    band2.position.set(x - 4, 8.4, z + s * 4.27);
+    band2.castShadow = false;
+    scene.add(band2);
+  }
+  const winRow = (count, start, step, y, fixed, alongZ) => {
+    for (let i = 0; i < count; i++) {
+      const win = box(1.3, 0.7, 0.1, glowMat);
+      if (alongZ) win.position.set(fixed, y, start + i * step);
+      else win.position.set(start + i * step, y, fixed);
+      win.castShadow = false;
+      scene.add(win);
+    }
+  };
+  winRow(9, x - 15, 3.4, 5.3, z + 5.42, false);
+  winRow(9, x - 15, 3.4, 5.3, z - 5.42, false);
+  winRow(6, x - 13, 3.4, 8.4, z + 4.34, false);
+  winRow(6, x - 13, 3.4, 8.4, z - 4.34, false);
+  // Casino entrance on deck 1's bow-facing side: doors, sconces, sign.
+  const door = box(0.3, 2.4, 2.4, lambert(0x14273d));
+  door.position.set(x + 15.1, 4.25, z);
+  scene.add(door);
+  for (const s of [1, -1]) {
+    const sconce = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), glowMat);
+    sconce.position.set(x + 15.2, 5.1, z + s * 2.1);
+    scene.add(sconce);
+  }
+  const casinoSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(8, 1.2),
+    new THREE.MeshBasicMaterial({ map: signTexture('CASINO', '#ffd76a', '#14273d') }),
+  );
+  casinoSign.position.set(x + 15.22, 5.95, z);
+  casinoSign.rotation.y = Math.PI / 2;
+  scene.add(casinoSign);
+  // Lit windows flanking the casino entrance on the same bow face.
+  for (const wz of [z - 4.4, z - 2.9, z + 2.9, z + 4.4]) {
+    const win = box(1.1, 0.7, 0.1, glowMat);
+    win.position.set(x + 15.12, 5.3, wz);
+    win.rotation.y = Math.PI / 2;
+    win.castShadow = false;
+    scene.add(win);
+  }
+  // Radar arch over the top deck.
+  const archMat = lambert(0xdde3e8);
+  for (const s of [1, -1]) {
+    const post = box(0.35, 2.6, 0.35, archMat);
+    post.position.set(x - 4, 10.8, z + s * 3.2);
+    scene.add(post);
+  }
+  const archBar = box(0.4, 0.4, 6.8, archMat);
+  archBar.position.set(x - 4, 12.1, z);
+  scene.add(archBar);
+  const radar = box(2.6, 0.35, 0.7, lambert(0xf4f6f8));
+  radar.position.set(x - 4, 12.55, z);
+  scene.add(radar);
+
   const mast = box(0.5, 10, 0.5, lambert(0x99a3ad));
   mast.position.set(x + 6, 13, z);
   scene.add(mast);
@@ -397,6 +499,18 @@ function buildYacht(scene) {
   sign2.position.z = z - 5.4;
   sign2.rotation.y = Math.PI;
   scene.add(sign2);
+  // String lights sagging from the masthead to the bow and the stern.
+  const stringLights = (x0, y0, x1, y1) => {
+    const n = 11;
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 6, 5), glowMat);
+      bulb.position.set(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t - Math.sin(t * Math.PI) * 1.1, z);
+      scene.add(bulb);
+    }
+  };
+  stringLights(x + 6, 17.4, x + 23, 4.2);
+  stringLights(x + 6, 17.4, x - 21, 4.2);
   // Warm deck lights.
   const lightMat = new THREE.MeshBasicMaterial({ color: 0xffca7a });
   for (let i = 0; i < 7; i++) {
@@ -469,6 +583,22 @@ function buildProps(scene, rng, colliders) {
       scene.add(head);
     }
   }
+
+  // Pier 9 dressing: lamp posts along both edges of the deck (the deck top
+  // sits at y 0.6) and palms flanking the pier root on the beach.
+  for (const px of [262, 284, 306]) {
+    for (const s of [1, -1]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 5.2, 6), poleMat);
+      pole.position.set(px, 3.2, PLACES.yachtPier.z + s * 4.2);
+      scene.add(pole);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 8, 6), dynamicMats.lampHead);
+      head.position.set(px, 5.9, PLACES.yachtPier.z + s * 4.2);
+      scene.add(head);
+    }
+  }
+  palmAt(256, -50);
+  palmAt(262, -70.5);
+  palmAt(300, -50.5);
 }
 
 /** Build the whole city into the scene. Returns colliders + the sky dome material hook. */

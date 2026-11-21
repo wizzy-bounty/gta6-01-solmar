@@ -33,10 +33,13 @@ export function applyShot(G, n) {
     return null;
   }
   if (n === 3) {
-    // The Solmar Job: on the pier, the casino yacht ahead, Mara on the phone.
-    G.setTimeOfDay(18.7);
+    // The Solmar Job: aboard the casino yacht at golden hour — the casino
+    // entrance, tiered decks and mast in front of Riko, Pier 9 with a parked
+    // sedan and the Solmar skyline behind him, Mara on the phone.
+    G.setTimeOfDay(17.9);
     G.setMission(5, 1); // "Grab the take from the casino deck"
-    G.placePlayer(298, -60, Math.PI / 2);
+    G.placeCar('sedan', 0x3f7fbf, 275, -60, Math.PI / 2);
+    G.placePlayer(352, -55.5, -1.71);
     G.showDialog([
       ['Mara Voss (phone)', 'Vault cage is full tonight, Vex. Walk in like a guest — walk out a legend.'],
     ]);
@@ -44,8 +47,16 @@ export function applyShot(G, n) {
     return null;
   }
   // Shot 4 — a morning stroll on the Marina promenade, tower ahead, sea behind.
+  // Dressed foreground: citizens stroll the sidewalk rings of Riko's block and
+  // the block across the street, and two cars are parked along the avenue.
   G.setTimeOfDay(10.4);
   G.setMission(0, 0); // "Meet Mara at the Velvet Palm club"
+  G.placePedestrian(-215.3, -158, -215.3, -138, { skin: 0xc68863, shirt: 0xe74c3c, pants: 0x2c3e50 });
+  G.placePedestrian(-206, -158.5, -184, -158.5, { skin: 0x8a5a3b, shirt: 0xf39c12, pants: 0x34495e, cap: 0x14273d });
+  G.placePedestrian(-186, -160.1, -208, -160.1, { skin: 0xf2c49b, shirt: 0x2ecc71, pants: 0x212121 });
+  G.placePedestrian(-186, -176.7, -206, -176.7, { skin: 0x6e4530, shirt: 0x3498db, pants: 0x5d4037 });
+  G.placeCar('hatch', 0xd94f30, -206, -163.8, Math.PI / 2);
+  G.placeCar('sedan', 0x7a4fb0, -188, -172.2, -Math.PI / 2);
   G.placePlayer(-214, -148, 2.77);
   G.setWanted(0);
   return null;

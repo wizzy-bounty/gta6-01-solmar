@@ -60,6 +60,11 @@ const playerMesh = createPersonMesh({ shirt: 0x0e7c86, pants: 0x22242c, skin: 0x
 playerMesh.position.set(PLACES.spawn.x, 0.22, PLACES.spawn.z);
 scene.add(playerMesh);
 
+// Extra pedestrians placed by the screenshot setups (shots.js): citizens on
+// fixed patrol segments, so the dossier frames are alive in the same way on
+// every capture. (The ambient crowd below is seeded, but wanders city-wide.)
+const shotPeds = [];
+
 const parkedCars = spawnParkedCars(scene, rng, 26);
 const traffic = createTraffic(scene, rng, 15);
 const pedestrians = createPedestrians(scene, rng, 42);
@@ -286,6 +291,15 @@ const G = {
     return v;
   },
   placePolice(x, z, heading) { return police.placeUnit(x, z, heading); },
+  placePedestrian(x1, z1, x2, z2, palette) {
+    const mesh = createPersonMesh(palette);
+    mesh.position.set(x1, groundY(x1, z1), z1);
+    mesh.rotation.y = Math.atan2(x2 - x1, z2 - z1);
+    scene.add(mesh);
+    const p = { mesh, ax: x1, az: z1, bx: x2, bz: z2, t: 0, dir: 1, speed: 1.25 };
+    shotPeds.push(p);
+    return p;
+  },
   setAutoDrive(speed) { state.autoDrive = { speed, heading: state.driving ? state.driving.heading : 0 }; },
   setCamMode(m) { state.camMode = m; },
 };
@@ -682,6 +696,20 @@ function frame() {
     const pPos = playerPosVec();
     traffic.update(dt, pPos, colliders);
     pedestrians.update(dt);
+    // Screenshot-setup pedestrians patrol their fixed segments.
+    for (const p of shotPeds) {
+      const len = Math.hypot(p.bx - p.ax, p.bz - p.az) || 1;
+      p.t += (p.dir * p.speed * dt) / len;
+      if (p.t > 1) { p.t = 1; p.dir = -1; }
+      if (p.t < 0) { p.t = 0; p.dir = 1; }
+      const px = p.ax + (p.bx - p.ax) * p.t;
+      const pz = p.az + (p.bz - p.az) * p.t;
+      p.mesh.position.x = px;
+      p.mesh.position.z = pz;
+      p.mesh.rotation.y = Math.atan2((p.bx - p.ax) * p.dir, (p.bz - p.az) * p.dir);
+      animatePerson(p.mesh, p.speed, dt);
+      p.mesh.position.y += groundY(px, pz);
+    }
     // Car-vs-car bumps (player car included).
     const movers = [...allVehicles];
     for (const u of police.units) movers.push(u.v);
