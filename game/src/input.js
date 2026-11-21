@@ -1,53 +1,57 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// input.js — keyboard and mouse state for SOLMAR HEAT.
+// Tracks held keys, one-frame "pressed" edges, mouse buttons and pointer-lock
+// look deltas. Everything else in the game reads input through this object.
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+export function createInput(canvas) {
+  const held = new Set();
+  const pressedEdges = new Set();
+  const mouseHeld = new Set();
+  const mouseEdges = new Set();
+  let lookDX = 0;
+  let lookDY = 0;
+  let locked = false;
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
-
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
-
-  window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
+  window.addEventListener('keydown', (ev) => {
+    if (ev.repeat) return;
+    held.add(ev.code);
+    pressedEdges.add(ev.code);
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(ev.code)) ev.preventDefault();
   });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
+  window.addEventListener('keyup', (ev) => held.delete(ev.code));
+  window.addEventListener('blur', () => { held.clear(); mouseHeld.clear(); });
+
+  canvas.addEventListener('mousedown', (ev) => {
+    if (!mouseHeld.has(ev.button)) mouseEdges.add(ev.button);
+    mouseHeld.add(ev.button);
   });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
-  window.addEventListener('blur', () => {
-    left = false;
-    right = false;
+  window.addEventListener('mouseup', (ev) => mouseHeld.delete(ev.button));
+
+  document.addEventListener('pointerlockchange', () => {
+    locked = document.pointerLockElement === canvas;
   });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
+  document.addEventListener('mousemove', (ev) => {
+    if (!locked) return;
+    lookDX += ev.movementX || 0;
+    lookDY += ev.movementY || 0;
   });
 
   return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
+    /** True while the key is physically down. */
+    down(code) { return held.has(code); },
+    /** True only on the first frame after the key went down. */
+    pressed(code) { return pressedEdges.has(code); },
+    mouseDown(button = 0) { return mouseHeld.has(button); },
+    mousePressed(button = 0) { return mouseEdges.has(button); },
+    isLocked() { return locked; },
+    lock() { canvas.requestPointerLock?.(); },
+    unlock() { if (locked) document.exitPointerLock?.(); },
+    /** Consume the accumulated pointer-lock look delta for this frame. */
+    takeLook() {
+      const d = { dx: lookDX, dy: lookDY };
+      lookDX = 0; lookDY = 0;
+      return d;
     },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
-    },
+    /** Call at the end of every frame so edge presses live exactly one frame. */
+    endFrame() { pressedEdges.clear(); mouseEdges.clear(); },
   };
 }

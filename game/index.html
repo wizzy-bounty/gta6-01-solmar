@@ -1,19 +1,164 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>SOLMAR HEAT — an open-world crime game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#0b0e1a;
+    font-family:"Segoe UI", "Helvetica Neue", Arial, sans-serif; color:#fff;
+    -webkit-user-select:none; user-select:none; }
+  #app { position:fixed; inset:0; }
+  #app canvas { display:block; }
+
+  /* ---------- HUD ---------- */
+  #hud { position:fixed; inset:0; pointer-events:none; display:none; }
+  #hud.on { display:block; }
+
+  #topbar { position:absolute; top:14px; left:18px; right:18px; display:flex;
+    justify-content:space-between; align-items:flex-start; }
+  #brand { font-weight:900; letter-spacing:2px; font-size:15px; color:#ffd76a;
+    text-shadow:0 2px 6px rgba(0,0,0,.65); }
+  #brand small { display:block; color:#cfe6ff; font-weight:600; letter-spacing:1px; font-size:10px; }
+  #stats { text-align:right; }
+  #stars { font-size:24px; line-height:1; letter-spacing:3px; color:#3a4152;
+    text-shadow:0 2px 5px rgba(0,0,0,.7); }
+  #stars .lit { color:#ffd23e; text-shadow:0 0 9px rgba(255,190,40,.85), 0 2px 4px rgba(0,0,0,.6); }
+  #money { font-size:21px; font-weight:800; color:#7dff8a; text-shadow:0 2px 5px rgba(0,0,0,.75); margin-top:2px; }
+  #clock { font-size:12px; color:#dfe9ff; text-shadow:0 1px 4px rgba(0,0,0,.8); letter-spacing:1px; }
+
+  #objective { position:absolute; top:86px; left:18px; max-width:340px;
+    background:linear-gradient(90deg, rgba(8,12,26,.78), rgba(8,12,26,.45) 80%, transparent);
+    border-left:4px solid #ffb52e; padding:8px 14px 9px 12px; border-radius:0 8px 8px 0; }
+  #objective-title { font-size:12px; font-weight:800; letter-spacing:1.5px; color:#ffb52e; text-transform:uppercase; }
+  #objective-text { font-size:15px; font-weight:600; color:#fff; margin-top:2px; text-shadow:0 1px 3px rgba(0,0,0,.8); }
+  #objective-sub { font-size:12px; color:#bcd2ff; margin-top:1px; }
+
+  #minimap-wrap { position:absolute; left:18px; bottom:18px; width:192px; height:192px;
+    border-radius:50%; border:3px solid rgba(255,255,255,.75);
+    box-shadow:0 6px 22px rgba(0,0,0,.55), inset 0 0 0 2px rgba(0,0,0,.35); overflow:hidden;
+    background:#1c2b3a; }
+  #minimap { width:192px; height:192px; display:block; }
+
+  #vitals { position:absolute; left:226px; bottom:26px; width:190px; }
+  .bar-label { font-size:10px; letter-spacing:2px; color:#eaf2ff; text-shadow:0 1px 3px rgba(0,0,0,.9); margin-bottom:3px; }
+  #health-bar { height:11px; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.5); border-radius:6px; overflow:hidden; }
+  #health-fill { height:100%; width:100%; background:linear-gradient(90deg,#ff5a4e,#ffb52e); transition:width .18s; }
+  #armor-line { font-size:11px; color:#bcd2ff; margin-top:4px; text-shadow:0 1px 3px rgba(0,0,0,.9); }
+
+  #speedo { position:absolute; right:22px; bottom:20px; text-align:right; display:none; }
+  #speedo.on { display:block; }
+  #speed-num { font-size:44px; font-weight:900; color:#fff; text-shadow:0 3px 10px rgba(0,0,0,.7); line-height:.95; }
+  #speed-unit { font-size:12px; letter-spacing:3px; color:#ffd76a; font-weight:700; }
+  #car-name { font-size:13px; color:#dfe9ff; letter-spacing:1px; margin-top:2px; text-shadow:0 1px 4px rgba(0,0,0,.8); }
+
+  #prompt { position:absolute; left:50%; bottom:19%; transform:translateX(-50%);
+    background:rgba(6,10,22,.82); border:1px solid rgba(255,255,255,.35); border-radius:10px;
+    padding:9px 18px; font-size:16px; font-weight:600; display:none; white-space:nowrap;
+    box-shadow:0 6px 18px rgba(0,0,0,.5); }
+  #prompt.on { display:block; }
+  #prompt b { color:#111; background:#ffd23e; border-radius:5px; padding:1px 8px; margin-right:8px; font-weight:900; }
+
+  #dialog { position:absolute; left:50%; bottom:9%; transform:translateX(-50%); width:min(660px, 86vw);
+    background:linear-gradient(180deg, rgba(5,8,20,.88), rgba(5,8,20,.78));
+    border:1px solid rgba(255,181,46,.55); border-radius:12px; padding:12px 18px 13px; display:none;
+    box-shadow:0 10px 30px rgba(0,0,0,.55); }
+  #dialog.on { display:block; }
+  #dialog-name { color:#ffb52e; font-weight:800; letter-spacing:1.5px; font-size:13px; text-transform:uppercase; }
+  #dialog-text { font-size:17px; line-height:1.35; margin-top:3px; text-shadow:0 1px 3px rgba(0,0,0,.9); }
+  #dialog-hint { font-size:11px; color:#9fb6dd; margin-top:6px; letter-spacing:1px; }
+
+  #toast { position:absolute; top:22%; left:50%; transform:translateX(-50%); text-align:center; display:none; }
+  #toast.on { display:block; }
+  #toast-big { font-size:34px; font-weight:900; letter-spacing:2px; color:#ffd23e;
+    text-shadow:0 3px 14px rgba(0,0,0,.8), 0 0 26px rgba(255,170,30,.45); }
+  #toast-sub { font-size:16px; color:#fff; margin-top:4px; text-shadow:0 2px 8px rgba(0,0,0,.85); }
+
+  #busted { position:absolute; inset:0; background:rgba(30,60,180,.28); display:none;
+    align-items:center; justify-content:center; font-size:64px; font-weight:900; letter-spacing:10px;
+    color:#cfe0ff; text-shadow:0 4px 22px rgba(0,0,0,.85); }
+  #busted.on { display:flex; }
+  #vignette { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .25s;
+    background:radial-gradient(ellipse at center, transparent 52%, rgba(200,20,20,.5) 100%); }
+
+  /* ---------- Screens ---------- */
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; text-align:center; z-index:5; }
+  #start-screen { background:linear-gradient(180deg, rgba(10,10,34,.42), rgba(24,6,38,.62)); }
+  #game-title { font-size:74px; font-weight:900; letter-spacing:4px; line-height:.95;
+    background:linear-gradient(180deg,#ffe259,#ffa751 55%,#ff5e8a);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 5px 16px rgba(0,0,0,.65)); }
+  #game-sub { font-size:17px; letter-spacing:3px; color:#eaf6ff; margin-top:10px; text-shadow:0 2px 8px rgba(0,0,0,.8); }
+  .menu-btn { pointer-events:auto; cursor:pointer; margin-top:16px; min-width:280px;
+    background:linear-gradient(180deg,#ffb52e,#ff7b39); color:#22100a; border:none; border-radius:10px;
+    font-size:19px; font-weight:800; letter-spacing:1px; padding:13px 26px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  .menu-btn:hover { filter:brightness(1.1); }
+  .menu-btn.ghost { background:rgba(10,16,34,.72); color:#dfe9ff; border:1px solid rgba(255,255,255,.4);
+    font-size:15px; padding:10px 22px; }
+  #controls-card { margin-top:26px; background:rgba(5,9,22,.68); border:1px solid rgba(255,255,255,.22);
+    border-radius:12px; padding:12px 22px; font-size:13.5px; line-height:1.65; color:#d7e5ff; text-align:left; }
+  #controls-card b { color:#ffd76a; }
+  #pause-menu { background:rgba(4,6,16,.66); display:none; }
+  #pause-menu.on { display:flex; }
+  #pause-menu h2 { font-size:40px; letter-spacing:6px; margin:0 0 6px; color:#ffd76a; text-shadow:0 3px 12px rgba(0,0,0,.8); }
+  #pause-stats { font-size:15px; color:#dfe9ff; margin-bottom:10px; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
-<p id="status" role="status" aria-live="polite"></p>
+<div id="app"></div>
+
+<div id="hud">
+  <div id="topbar">
+    <div id="brand">SOLMAR HEAT<small>SOLMAR CITY &bull; EST. 1987</small></div>
+    <div id="stats">
+      <div id="stars"></div>
+      <div id="money">$0</div>
+      <div id="clock">17:20</div>
+    </div>
+  </div>
+  <div id="objective">
+    <div id="objective-title">Objective</div>
+    <div id="objective-text">Explore Solmar City</div>
+    <div id="objective-sub"></div>
+  </div>
+  <div id="minimap-wrap"><canvas id="minimap" width="192" height="192"></canvas></div>
+  <div id="vitals">
+    <div class="bar-label">HEALTH</div>
+    <div id="health-bar"><div id="health-fill"></div></div>
+    <div id="armor-line">Riko &ldquo;Vex&rdquo; Marlowe</div>
+  </div>
+  <div id="speedo"><div id="speed-num">0</div><div id="speed-unit">KM/H</div><div id="car-name"></div></div>
+  <div id="prompt"></div>
+  <div id="dialog"><div id="dialog-name"></div><div id="dialog-text"></div><div id="dialog-hint">SPACE / CLICK &mdash; continue</div></div>
+  <div id="toast"><div id="toast-big"></div><div id="toast-sub"></div></div>
+  <div id="busted">BUSTED</div>
+  <div id="vignette"></div>
+</div>
+
+<div id="start-screen" class="screen">
+  <div id="game-title">SOLMAR<br>HEAT</div>
+  <div id="game-sub">STEAL IT. DRIVE IT. OUTRUN THE LAW.</div>
+  <button class="menu-btn" id="btn-start">START ENGINE</button>
+  <button class="menu-btn ghost" id="btn-continue" style="display:none">CONTINUE &mdash; <span id="continue-info"></span></button>
+  <div id="controls-card">
+    <b>W A S D</b> move / drive &nbsp;&bull;&nbsp; <b>SHIFT</b> sprint &nbsp;&bull;&nbsp; <b>MOUSE</b> camera<br>
+    <b>E</b> steal / enter / exit car &nbsp;&bull;&nbsp; <b>F</b> punch &nbsp;&bull;&nbsp; <b>CLICK</b> shoot<br>
+    <b>SPACE</b> handbrake / talk &nbsp;&bull;&nbsp; <b>P</b> pause &nbsp;&bull;&nbsp; follow the <b style="color:#ffb52e">&#9679;</b> marker to work the Solmar Job
+  </div>
+</div>
+
+<div id="pause-menu" class="screen">
+  <h2>PAUSED</h2>
+  <div id="pause-stats"></div>
+  <button class="menu-btn" id="btn-resume">RESUME</button>
+  <button class="menu-btn ghost" id="btn-restart">RESTART STORY</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.min.js" } }
+</script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

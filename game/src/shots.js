@@ -1,79 +1,52 @@
-// The screenshot scenes behind ?shot=start|play|end. Each one plays the real rules forward from a
-// fresh world for a fixed number of steps, steered by a simple autopilot (look ahead each way the
-// paddle could move, keep clear of blocks, chase the lowest coin when that is safe), so the frame
-// is what a short game really looks like and the same seed always gives the same frame.
-import { FIELD, PLAYER, STEP } from './config.js';
-import { EVENT_OVER, KIND_BLOCK } from './world.js';
-import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// shots.js — deterministic screenshot setups for SOLMAR HEAT.
+// `?shot=N` arranges the scene (player, cars, police, wanted level, mission,
+// time of day) so the four dossier screenshots can be re-taken with the same
+// composition every time. The game still runs live around the setup: traffic
+// flows, pedestrians walk, police lights flash.
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 26;
-const END_LIMIT_SECONDS = 600;
-/**
- * How far ahead, in seconds, the autopilot checks each way it could move: the play scene's pilot
- * looks well ahead and keeps all its lives; the end scene's looks only a moment ahead, so it is
- * caught out once the blocks speed up, as a hurried player is.
- */
-const HORIZON_PLAY = 0.7;
-const HORIZON_END = 0.25;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [0, -1, 1];
-/** Extra room, each side, it keeps between the paddle and a block. */
-const MARGIN = 10;
-
-/** Seconds until moving in `direction` (-1, 0, 1) runs the paddle into a block; Infinity when it never does. */
-function timeToHit(state, direction, horizon) {
-  const player = state.player;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * t));
-    for (let index = 0; index < state.items.length; index += 1) {
-      const item = state.items[index];
-      if (!item.active || item.kind !== KIND_BLOCK) continue;
-      const y = item.y + item.speed * t;
-      if (y + item.height > player.y && y < player.y + player.height && item.x < x + player.width + MARGIN && item.x + item.width > x - MARGIN) return t;
-    }
-  }
-  return Infinity;
+export function readShotNumber() {
+  const raw = new URLSearchParams(window.location.search).get('shot');
+  const n = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(n) && n >= 1 && n <= 4 ? n : 0;
 }
 
-/** Of the safe ways to move, the one toward the lowest coin (or the centre); else the one that is hit last. */
-function autopilot(state, horizon) {
-  const player = state.player;
-  let coin = null;
-  for (let index = 0; index < state.items.length; index += 1) {
-    const item = state.items[index];
-    if (item.active && item.kind !== KIND_BLOCK && (coin === null || item.y > coin.y)) coin = item;
+export function applyShot(G, n) {
+  if (n === 1) {
+    // COVER — a three-star chase down the Marina waterfront boulevard.
+    G.setTimeOfDay(17.35);
+    G.setMission(2, 1); // "Drop the package at Old Town Square"
+    const car = G.placePlayerInCar('sport', 0xd92323, -224, -96, 0, 21);
+    G.placePolice(-226.5, -110, 0);
+    G.placePolice(-221.5, -121, 0);
+    G.setWanted(3);
+    G.setAutoDrive(21);
+    G.setCamMode('front');
+    return car;
   }
-  const target = coin === null ? FIELD.width / 2 : coin.x + coin.width / 2;
-  const centre = player.x + player.width / 2;
-  const wanted = target > centre + 8 ? 1 : target < centre - 8 ? -1 : 0;
-  let best = wanted;
-  let bestTime = timeToHit(state, wanted, horizon);
-  for (let index = 0; index < DIRECTIONS.length && bestTime !== Infinity; index += 1) {
-    const time = timeToHit(state, DIRECTIONS[index], horizon);
-    if (time > bestTime) {
-      bestTime = time;
-      best = DIRECTIONS[index];
-    }
+  if (n === 2) {
+    // Stealing a Vantara GT under the Neon Strip lights, dusk.
+    G.setTimeOfDay(19.6);
+    G.setMission(1, 0); // "Steal the magenta Vantara GT"
+    G.placeCar('sport', 0xff2fb3, -168, 188, 0);
+    G.placePlayer(-166.2, 189.6, -2.25);
+    G.setWanted(0);
+    return null;
   }
-  return best;
-}
-
-/**
- * Set `world` to the named scene (start, play or end; any other name is start) and return the
- * screen to draw over it and the best score to show.
- */
-export function stageShot(name, world) {
-  world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, 0, true);
-    return { screen: SCREEN_TITLE, best: 0 };
+  if (n === 3) {
+    // The Solmar Job: on the pier, the casino yacht ahead, Mara on the phone.
+    G.setTimeOfDay(18.7);
+    G.setMission(5, 1); // "Grab the take from the casino deck"
+    G.placePlayer(298, -60, Math.PI / 2);
+    G.showDialog([
+      ['Mara Voss (phone)', 'Vault cage is full tonight, Vex. Walk in like a guest — walk out a legend.'],
+    ]);
+    G.setWanted(0);
+    return null;
   }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let index = 0; index < limit / STEP; index += 1) {
-    if (world.step(STEP, autopilot(world.state, horizon), false) & EVENT_OVER) break;
-  }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
+  // Shot 4 — a morning stroll on the Marina promenade, tower ahead, sea behind.
+  G.setTimeOfDay(10.4);
+  G.setMission(0, 0); // "Meet Mara at the Velvet Palm club"
+  G.placePlayer(-214, -148, 2.77);
+  G.setWanted(0);
+  return null;
 }
